@@ -1,0 +1,150 @@
+---
+title: "YouTube Data Collection and Sentiment Analysis"
+author: "Tori Green"
+date: "2025-05-05"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: flatly
+---
+
+## 🎯 Project Overview
+
+This project demonstrates how to use R to:  
+- Collect video data and comments from YouTube using the `tuber` package.  
+- Analyze comments with text mining and sentiment analysis.  
+- Create visualizations including a word cloud and sentiment bar plot.
+
+---
+
+## 📦 Setup & Authentication
+
+```{r message=FALSE, warning=FALSE}
+# Install packages if needed
+# install.packages(c("tuber", "tm", "SnowballC", "wordcloud", "syuzhet"))
+
+library(tuber)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(syuzhet)
+```
+
+### 🔑 API Authentication
+
+> ⚠️ **Important:** Replace with your own YouTube API credentials from the Google Cloud Console.
+
+```{r}
+client_id <- Sys.getenv("YT_CLIENT_ID")     # Set your YouTube API client ID
+client_secret <- Sys.getenv("YT_CLIENT_SECRET") # Set your YouTube API client secret
+yt_oauth(client_id, client_secret, token = '')
+
+```
+
+---
+
+## 📂 Data Collection
+
+### ▶️ Get Video Stats & Details
+
+```{r}
+get_stats(video_id = "SHTySDvxHhY")
+get_video_details(video_id = "SHTySDvxHhY")
+```
+
+### 🔍 Search for Videos
+
+```{r}
+search_result <- yt_search("Social Media Analytics")
+head(search_result, 10)   # show first 10 results
+```
+
+### 💬 Collect Video Comments
+
+```{r}
+comments <- get_all_comments(video_id = "SHTySDvxHhY")
+head(comments)
+```
+
+💾 **Save comments to CSV for later use**
+```{r}
+write.csv(comments, file = "YouTubeVideoComments.csv", row.names = FALSE)
+```
+
+---
+
+## 📝 Text Processing & Word Cloud
+
+### 📑 Create Comments Corpus
+
+```{r}
+comments_corp <- Corpus(VectorSource(comments$textOriginal))
+```
+
+### 🧹 Clean & Create Document-Term Matrix
+
+```{r}
+comments_DTM <- DocumentTermMatrix(comments_corp,
+                                   control = list(removePunctuation = TRUE,
+                                                  removeNumbers = TRUE,
+                                                  stopwords = TRUE))
+# Preview
+as.matrix(comments_DTM[1:5, 1:5])
+```
+
+### ☁️ Word Cloud of Comments
+
+```{r}
+comments_terms <- colSums(as.matrix(comments_DTM))
+wordcloud(words = names(comments_terms),
+          freq = comments_terms,
+          min.freq = 2,
+          colors = brewer.pal(8, "Dark2"))
+```
+
+---
+
+## 💡 Sentiment Analysis
+
+### 🔍 NRC Sentiment Scores
+
+```{r}
+video_sentiment <- get_nrc_sentiment(as.character(comments$textOriginal))
+head(video_sentiment)
+```
+
+### 📊 Summarize Emotion Counts
+
+```{r}
+VideoCommentsEmotionsDFCount <- data.frame(
+  Emotion = colnames(video_sentiment),
+  Frequency = colSums(video_sentiment > 0)
+)
+
+# Bar plot
+barplot(VideoCommentsEmotionsDFCount$Frequency,
+        names.arg = VideoCommentsEmotionsDFCount$Emotion,
+        main = "YouTube Video Comments Sentiment",
+        xlab = "Emotions", ylab = "Frequency", las = 2,
+        col = rainbow(10))
+```
+
+### ➕ Comment Polarity
+
+```{r}
+VideoCommentPolarity <- data.frame(
+  Comment = as.character(comments$textOriginal),
+  Polarity = get_sentiment(as.character(comments$textOriginal))
+)
+head(VideoCommentPolarity)
+```
+
+---
+
+## ✅ Key Insights
+
+- Word cloud highlights most frequent discussion terms in the video’s comments.  
+- Sentiment analysis provides a breakdown of emotions like joy, anticipation, and trust.  
+- Polarity analysis assigns each comment a score showing if it’s positive or negative.
+
